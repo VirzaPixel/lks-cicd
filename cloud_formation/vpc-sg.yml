@@ -1,0 +1,278 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: LKS JAKTIM2 VIRZA
+
+Resources:
+  # VPC
+  myVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 20.2.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+       - Key: Name
+         Value: lks-jaktim2-virza
+  ipv6CidrBlock:
+    Type: AWS::EC2::VPCCidrBlock
+    Properties:
+      VpcId: !Ref myVPC
+      AmazonProvidedIpv6CidrBlock: true
+
+  # Subnet Public
+  PublicSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      CidrBlock: 20.2.0.0/24
+      AvailabilityZone: "us-east-1a"
+      Tags:
+      - Key: Name
+        Value: subnet-1a-public
+
+  PublicSubnet1b:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      CidrBlock: 20.2.1.0/24
+      AvailabilityZone: "us-east-1b"
+      Tags:
+      - Key: Name
+        Value: subnet-1b-public
+
+  PrivateSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      CidrBlock: 20.2.2.0/24
+      AvailabilityZone: "us-east-1a"
+      Tags:
+      - Key: Name
+        Value: subnet-1a-private
+
+  PrivateSubnet1b:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref myVPC
+      CidrBlock: 20.2.3.0/24
+      AvailabilityZone: "us-east-1b"
+      Tags:
+      - Key: Name
+        Value: subnet-1b-private
+
+  # Igw
+  myInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: lks-jaktim2-virza-igw
+
+  # Attach Igw
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref myVPC
+      InternetGatewayId: !Ref myInternetGateway
+      
+  # Nat Gateway
+  NATGateway:
+   Type: AWS::EC2::NatGateway
+   DependsOn: AttachGateway
+   Properties:
+      AllocationId: !GetAtt NATGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet1a
+      Tags:
+      - Key: Name
+        Value: lks-jaktim2-virza-natgateway
+
+  NATGatewayEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+        Domain: vpc
+  
+  # Route
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+       RouteTableId:
+         Ref: PublicRouteTable
+       DestinationCidrBlock: 0.0.0.0/0
+       GatewayId:
+         Ref: myInternetGateway
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+       RouteTableId:
+         Ref: PrivateRouteTable
+       DestinationCidrBlock: 0.0.0.0/0
+       NatGatewayId:
+         Ref: NATGateway
+
+  # rtb association
+  PublicSubnet1aRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnet1a
+      RouteTableId:
+        Ref: PublicRouteTable
+
+  PublicSubnet1bRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnet1b
+      RouteTableId:
+        Ref: PublicRouteTable
+
+  PrivateSubnet1aRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivateSubnet1a
+      RouteTableId:
+        Ref: PrivateRouteTable
+
+  PrivateSubnet1bRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivateSubnet1b
+      RouteTableId:
+        Ref: PrivateRouteTable
+
+  # Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        Ref: myVPC
+      Tags:
+      - Key: Name
+        Value: public-route-table
+    
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        Ref: myVPC
+      Tags:
+      - Key: Name
+        Value: private-route-table
+
+# Security Group 1
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Load Balancer
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+        # http
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        # https
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: SG-LB
+
+# Security Group 2
+  InstanceSecurityGroup2:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Apps
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+        # NFS
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          CidrIp: 0.0.0.0/0
+        # MYSQL
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 5000
+          ToPort: 5000
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: SG-Apps
+
+  # S3 Bucket
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: lks-kabbanyumas-virza-25
+      Region: us-east-1
+      Tags:
+        - Key: Name
+          Value: lks-kabbanyumas-virza-25
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+    lifecycleConfiguration:
+      Rules:
+        - Status: Enabled
+          ExpirationInDays: 30
+    
+  MyBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket:
+        Ref: 'MyBucket'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource:
+              Fn::Join:
+                - ''
+                - - 'arn:aws:s3:::'
+                  - Ref: 'MyBucket'
+                  - '/*'
+
+
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref myVPC
+    Export:
+      Name: lks-jaktim2-virza-VpcId
+
+  PublicSubnet1a:
+    Description: Public Subnet 1a
+    Value: !Ref PublicSubnet1a
+    Export:
+      Name: lks-jaktim2-virza-PublicSubnet1a
+
+  PublicSubnet1b:
+    Description: Public Subnet 1b
+    Value: !Ref PublicSubnet1b
+    Export:
+      Name: lks-jaktim2-virza-PublicSubnet1b
+
+  PrivateSubnet1a:
+    Description: Private Subnet 1a
+    Value: !Ref PrivateSubnet1a
+    Export:
+      Name: lks-jaktim2-virza-PrivateSubnet1a
+  
+  PrivateSubnet1b:
+    Description: Private Subnet 1b
+    Value: !Ref PrivateSubnet1b
+    Export:
+      Name: lks-jaktim2-virza-PrivateSubnet1b

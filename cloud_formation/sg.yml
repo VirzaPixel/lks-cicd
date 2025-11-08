@@ -1,0 +1,87 @@
+Resources:
+  # S3 Bucket
+  MyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: lks-kabbanyumas-virza-25
+      Tags:
+        - Key: Name
+          Value: lks-kabbanyumas-virza-25
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      LifecycleConfiguration:
+        Rules:
+          - Id: ArchiveAndDelete
+            Status: Enabled
+            ExpirationInDays: 365
+            Transitions:
+               - StorageClass: GLACIER
+                 TransitionInDays: 30
+
+
+  MyBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket:
+        Ref: 'MyBucket'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource:
+              Fn::Join:
+                - ''
+                - - 'arn:aws:s3:::'
+                  - Ref: 'MyBucket'
+                  - '/*'
+
+  MyBucket2:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: lks-dockerimage-virza-25
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Name
+          Value: lks-dockerimage-virza-25
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false  
+
+  MyBucket2Policy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket:
+        Ref: 'MyBucket2'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource:
+              Fn::Join:
+                - ''
+                - - 'arn:aws:s3:::'
+                  - Ref: 'MyBucket2'
+                  - '/*'
+
+Outputs:
+  S3BucketName:
+    Description: S3 Bucket Name
+    Value: !Ref MyBucket
+    Export:
+      Name: lks-kabbanyumas-virza-25-S3BucketName
+  
+  S3Bucket2Name:
+    Description: S3 Bucket2 Name
+    Value: !Ref MyBucket2
+    Export:
+      Name: lks-dockerimage-virza-25-S3Bucket2Name
