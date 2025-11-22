@@ -13,7 +13,7 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_SESSION_TOKEN = os.getenv("AWS_SESSION_TOKEN")
 AWS_REGION = os.getenv("AWS_REGION")
-S3_BUCKET = os.getenv("S3_BUCKET")
+S3_BUCKET = os.getenv("S3_BUCKET_NAME")
 API_URL = os.getenv("API_URL")
 
 s3_client = boto3.client(
@@ -102,4 +102,4 @@ def update_user(user_id):
         return jsonify({"error": "Failed to update user"}), response.status_code
 
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0', port=8080)
